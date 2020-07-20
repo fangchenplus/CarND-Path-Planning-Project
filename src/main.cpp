@@ -52,9 +52,12 @@ int main() {
     map_waypoints_dx.push_back(d_x);
     map_waypoints_dy.push_back(d_y);
   }
-
+  
+  int lane = 1; // three lanes labeled as 0, 1, and 2
+  double ref_vel = 0.0; //mph
+  
   h.onMessage([&map_waypoints_x,&map_waypoints_y,&map_waypoints_s,
-               &map_waypoints_dx,&map_waypoints_dy]
+               &map_waypoints_dx,&map_waypoints_dy, &lane,&ref_vel]
               (uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
                uWS::OpCode opCode) {
     // "42" at the start of the message means there's a websocket message event.
@@ -102,8 +105,43 @@ int main() {
            */
           // 4m lane width 
           // The car does not exceed a total acceleration of 10 m/s^2 and a jerk of 10 m/s^3.
-          int lane = 1; // three lanes labeled as 0, 1, and 2
-          double ref_vel = 49.5; //mph
+                    
+          bool too_close = false; //if a car is in my way
+          
+          int prev_size = previous_path_x.size();
+          // cout << "prev_size" << prev_size << endl;
+          
+          //find ref_v to use
+          for (int i = 0; i<sensor_fusion.size(); i++) {
+            //car is in my lane
+            float d = sensor_fusion[i][6];
+            if (d<(2+4*lane+2) && d>(2+4*lane-2)) {
+              double vx = sensor_fusion[i][3];
+              double vy = sensor_fusion[i][4];
+              double check_speed = sqrt(vx*vx + vy*vy);
+              double check_car_s = sensor_fusion[i][5];
+              
+              check_car_s += (double)prev_size*.02*check_speed; //predict the check_car future position if using previous points
+              //if check_car is in my waypoint
+              if(check_car_s > car_s && (check_car_s-car_s)<30) {
+                // ref_vel = 29.5;//mph
+                too_close = true;
+                if(lane > 0) {
+                  lane -= 1;
+                }
+                else {
+                  lane += 1;
+                }
+              }
+            }
+          }
+          
+          if(too_close) {
+            ref_vel -= 0.224; //5m/s
+          }
+          else if(ref_vel < 49.5) {
+            ref_vel += 0.224;
+          }
           
           vector<double> ptsx; //sparsed (x,y) points with 30m interval for interpolation
           vector<double> ptsy;
@@ -112,10 +150,7 @@ int main() {
           double ref_x = car_x; 
           double ref_y = car_y;
           double ref_yaw = deg2rad(car_yaw);
-                             
-          int prev_size = previous_path_x.size();
-          cout << "prev_size" << prev_size << endl;
-          
+                                     
           if (prev_size < 2) {
             double prev_car_x = car_x - cos(car_yaw);
             double prev_car_y = car_y - sin(car_yaw);
@@ -176,7 +211,6 @@ int main() {
             next_x_vals.push_back(previous_path_x[i]);
             next_y_vals.push_back(previous_path_y[i]);
           }
-
 
           for (int i = 0; i < 50-prev_size; ++i) {    
 

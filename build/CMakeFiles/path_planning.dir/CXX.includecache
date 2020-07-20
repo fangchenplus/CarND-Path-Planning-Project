@@ -858,3 +858,13 @@ json.hpp
 spline.h
 /home/fchen/CarND-Path-Planning-Project/src/spline.h
 
+/home/fchen/CarND-Path-Planning-Project/src/spline.h
+cstdio
+-
+cassert
+-
+vector
+-
+algorithm
+-
+
