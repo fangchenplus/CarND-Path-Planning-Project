@@ -113,76 +113,51 @@ int main() {
           bool car_right = false;
           
           // find which lane I am
-          if (car_d <= 4) {
+          if (car_d > 0 and car_d < 4) {
             lane = 0; //left lane
           }
           else if (car_d > 4 && car_d < 8 ) {
             lane = 1; //middle lane
           }
-          else if (car_d >= 8) {
+          else if (car_d > 8 && car_d < 12) {
             lane = 2; //right lane
           }
           
-          int my_lane = lane;
-          
           int prev_size = previous_path_x.size();
           // cout << "prev_size" << prev_size << endl;
-          // cout << "new_size" << 50-prev_size << endl;          
+          
           //find ref_v to use
-          double car_ahead_speed = 0.0; 
-          
           for (int i = 0; i<sensor_fusion.size(); i++) {
-            
+            //car is in my lane
             float d = sensor_fusion[i][6];
-            double vx = sensor_fusion[i][3];
-            double vy = sensor_fusion[i][4];
-            double check_speed = sqrt(vx*vx + vy*vy);
-            double check_car_s = sensor_fusion[i][5];  
-            
-
-            
-            // check_car_s += (double)prev_size*0.02*check_speed; //predict the check_car future position if using previous points            
-            //car is in my lane within 30 meters
-            if (d<(2+4*lane+2) && d>(2+4*lane-2) && check_car_s > car_s && (check_car_s-car_s)<30) {
+            if (d<(2+4*lane+2) && d>(2+4*lane-2)) {
+              double vx = sensor_fusion[i][3];
+              double vy = sensor_fusion[i][4];
+              double check_speed = sqrt(vx*vx + vy*vy);
+              double check_car_s = sensor_fusion[i][5];
+              
+              // check_car_s += (double)prev_size*0.02*check_speed; //predict the check_car future position if using previous points
               //if check_car is in my waypoint
-              car_ahead = true;
-              car_ahead_speed = check_speed;
+              if(check_car_s > car_s && (check_car_s-car_s)<30) {
+                // ref_vel = 29.5;//mph
+                car_ahead = true;
+                if(lane > 0) {
+                  lane -= 1;
+                }
+                else {
+                  lane += 1;
+                }
+              }
             }
-            
-            else if (d<(2+4*lane-2) && abs(check_car_s-car_s)<20) {
-              car_left = true;
-            }
-            
-            else if (d>(2+4*lane+2) && abs(check_car_s-car_s)<20) {
-              car_right = true;
-            }
-            
-            // car_ahead_speed = check_speed;
-            
           }
           
-          cout << "current lane: " << my_lane << "======target lane: " << lane << "======left: " << car_left << "======right: " << car_right  << "======ahead: " << car_ahead << endl;
+          if(car_ahead) {
+            ref_vel -= 0.224; //5m/s
+          }
+          else if(ref_vel < 49.5) {
+            ref_vel += 0.224;
+          }
           
-          // Step 2: Behavior Planning
-          if (car_ahead) {
-            if (!car_left && lane > 0 && car_speed > 20) {
-              lane -= 1;
-            }
-            else if (!car_right && lane < 2 && car_speed > 20) {
-              lane += 1;
-            }
-            else if (car_ahead_speed < car_speed) {
-              ref_vel -= 0.224/2; //0.224 = 5m/s
-            } 
-            else if (car_ahead_speed > car_speed + 0.224) {
-              ref_vel += 0.224/2; //5m/s
-            }
-          }
-          else if (ref_vel < 49.5) {
-            ref_vel += 0.224*1.5;            
-          }
-
-          // Step 3: Trajecotry Generation
           vector<double> ptsx; //sparsed (x,y) points with 30m interval for interpolation
           vector<double> ptsy;
           
